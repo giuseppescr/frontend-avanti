@@ -1,122 +1,118 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  // Pega a URL da API do .env ou usa o localhost como padrão
+  const API = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setErro("");
+    setLoading(true);
 
     try {
-      const resposta = await axios.post("http://localhost:3000/login", {
+      const resposta = await axios.post(`${API}/login`, {
         email,
         senha,
       });
 
       localStorage.setItem("token", resposta.data.token);
-
       navigate("/conhecimentos");
     } catch (error) {
       console.error(error);
-      setErro("E-mail ou senha incorretos. Tente novamente.");
+      if (error.response?.status === 401) {
+        setErro("E-mail ou senha incorretos.");
+      } else {
+        setErro("Não foi possível conectar ao servidor.");
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <h2 style={styles.title}>Entrar na Plataforma</h2>
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center font-sans p-6">
+      <div className="bg-white p-10 rounded-3xl shadow-2xl shadow-indigo-100 border border-slate-100 w-full max-w-md relative">
+        {/* Botão Voltar*/}
+        <button
+          onClick={() => navigate("/")}
+          className="absolute top-6 left-6 text-slate-400 hover:text-indigo-700 transition-colors flex items-center gap-1 text-sm font-medium cursor-pointer"
+        >
+          <span>←</span> Voltar
+        </button>
 
-        <form onSubmit={handleLogin} style={styles.form}>
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>E-mail</label>
+        <h2 className="text-2xl font-bold text-slate-800 text-center mb-2 mt-4">
+          Bem-vindo
+        </h2>
+        <p className="text-slate-500 text-center mb-8 text-sm text-balance">
+          Entre para continuar trocando conhecimentos.
+        </p>
+
+        <form onSubmit={handleLogin} className="space-y-5">
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-2 px-1 text-left">
+              E-mail
+            </label>
             <input
               type="email"
+              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all placeholder:text-slate-400"
+              placeholder="seu@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              style={styles.input}
-              placeholder="seu@email.com"
               required
             />
           </div>
 
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Senha</label>
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-2 px-1 text-left">
+              Senha
+            </label>
             <input
               type="password"
+              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all placeholder:text-slate-400"
+              placeholder="••••••"
               value={senha}
               onChange={(e) => setSenha(e.target.value)}
-              style={styles.input}
-              placeholder="******"
               required
             />
           </div>
 
-          {erro && <p style={styles.error}>{erro}</p>}
+          {erro && (
+            <div className="bg-red-50 text-red-600 text-xs py-3 rounded-lg text-center font-medium border border-red-100">
+              {erro}
+            </div>
+          )}
 
-          <button type="submit" style={styles.button}>
-            Entrar
+          <button
+            type="submit"
+            disabled={loading}
+            className={`w-full py-4 rounded-xl font-bold shadow-lg shadow-indigo-200 transition transform active:scale-[0.98] cursor-pointer mt-4 ${
+              loading
+                ? "bg-indigo-400"
+                : "bg-indigo-700 hover:bg-indigo-800 text-white"
+            }`}
+          >
+            {loading ? "Entrando..." : "Entrar"}
           </button>
         </form>
+
+        <p className="text-center mt-8 text-sm text-slate-500">
+          Ainda não tem conta?{" "}
+          <Link
+            to="/cadastro"
+            className="text-indigo-700 font-bold hover:underline"
+          >
+            Cadastre-se
+          </Link>
+        </p>
       </div>
     </div>
   );
 }
-
-const styles = {
-  container: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    minHeight: "100vh",
-    backgroundColor: "#f9f9f9",
-    fontFamily: "Arial, sans-serif",
-  },
-  card: {
-    backgroundColor: "white",
-    padding: "40px",
-    borderRadius: "10px",
-    boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
-    width: "100%",
-    maxWidth: "400px",
-  },
-  title: { textAlign: "center", marginBottom: "20px", color: "#333" },
-  form: { display: "flex", flexDirection: "column" },
-  inputGroup: { marginBottom: "15px" },
-  label: {
-    display: "block",
-    marginBottom: "5px",
-    fontWeight: "bold",
-    color: "#555",
-  },
-  input: {
-    width: "100%",
-    padding: "10px",
-    border: "1px solid #ccc",
-    borderRadius: "5px",
-    boxSizing: "border-box",
-  },
-  button: {
-    marginTop: "10px",
-    padding: "12px",
-    fontSize: "16px",
-    fontWeight: "bold",
-    color: "white",
-    backgroundColor: "#007BFF",
-    border: "none",
-    borderRadius: "5px",
-    cursor: "pointer",
-    transition: "0.3s",
-  },
-  error: {
-    color: "red",
-    fontSize: "14px",
-    marginBottom: "10px",
-    textAlign: "center",
-  },
-};
