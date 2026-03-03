@@ -1,222 +1,197 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
 export default function ConhecimentosPage() {
   const [conhecimentos, setConhecimentos] = useState([]);
-  const [erro, setErro] = useState("");
-
-  const [titulo, setTitulo] = useState("");
-  const [descricao, setDescricao] = useState("");
-  const [categoria, setCategoria] = useState("");
-  const [nivel, setNivel] = useState("Iniciante");
-
+  const [novoConhecimento, setNovoConhecimento] = useState({
+    titulo: "",
+    categoria: "",
+    nivel: "Iniciante",
+    descricao: "",
+  });
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    carregarConhecimentos();
-  }, []);
+  const API = import.meta.env.VITE_API_URL || "http://localhost:3000";
+  const token = localStorage.getItem("token");
 
-  const carregarConhecimentos = async () => {
+  const fetchConhecimentos = useCallback(async () => {
     try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        navigate("/login");
-        return;
-      }
-      const resposta = await axios.get("http://localhost:3000/conhecimentos", {
+      const res = await axios.get(`${API}/conhecimentos`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setConhecimentos(resposta.data);
-    } catch (error) {
-      console.error(error);
-      setErro("Erro ao carregar a lista.");
-      if (error.response?.status === 401) {
-        handleLogout();
-      }
+      setConhecimentos(res.data);
+    } catch (err) {
+      console.error("Erro ao buscar conhecimentos", err);
     }
-  };
+  }, [API, token]);
 
-  const handleCriarConhecimento = async (e) => {
-    e.preventDefault();
-    try {
-      const token = localStorage.getItem("token");
-      await axios.post(
-        "http://localhost:3000/conhecimentos",
-        { titulo, descricao, categoria, nivel },
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
-
-      setTitulo("");
-      setDescricao("");
-      setCategoria("");
-      setNivel("Iniciante");
-      carregarConhecimentos();
-    } catch (error) {
-      console.error(error);
-      alert("Erro ao criar o conhecimento.");
+  useEffect(() => {
+    if (!token) {
+      navigate("/login");
+      return;
     }
-  };
+    fetchConhecimentos();
+  }, [token, navigate, fetchConhecimentos]);
 
   const handleLogout = () => {
     localStorage.removeItem("token");
     navigate("/");
   };
 
+  const handlePublicar = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await axios.post(`${API}/conhecimentos`, novoConhecimento, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setNovoConhecimento({
+        titulo: "",
+        categoria: "",
+        nivel: "Iniciante",
+        descricao: "",
+      });
+      fetchConhecimentos();
+    } catch (err) {
+      console.error("Erro técnico ao publicar:", err);
+      alert("Erro ao publicar conhecimento.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div style={styles.container}>
-      <header style={styles.header}>
-        <h2>Ofertas de Conhecimento 🧠</h2>
-        <button onClick={handleLogout} style={styles.btnSair}>
-          Sair
-        </button>
+    <div className="min-h-screen bg-slate-50 font-sans pb-12">
+      {/* Header Padronizado */}
+      <header className="bg-white border-b border-slate-100 shadow-sm px-6 py-4 mb-8">
+        <div className="max-w-6xl mx-auto flex justify-between items-center">
+          <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+            Ofertas de Conhecimento
+          </h1>
+          <button
+            onClick={handleLogout}
+            className="text-slate-400 hover:text-indigo-700 transition-colors text-sm font-bold cursor-pointer"
+          >
+            Sair
+          </button>
+        </div>
       </header>
 
-      {/* NOVO: Formulário para cadastrar uma oferta */}
-      <div style={styles.formContainer}>
-        <h3>Compartilhe um conhecimento</h3>
-        <form onSubmit={handleCriarConhecimento} style={styles.form}>
-          <input
-            type="text"
-            placeholder="Título (ex: Aulas de React)"
-            value={titulo}
-            onChange={(e) => setTitulo(e.target.value)}
-            style={styles.input}
-            required
-          />
-          <input
-            type="text"
-            placeholder="Categoria (ex: Programação, Idiomas)"
-            value={categoria}
-            onChange={(e) => setCategoria(e.target.value)}
-            style={styles.input}
-            required
-          />
-          <select
-            value={nivel}
-            onChange={(e) => setNivel(e.target.value)}
-            style={styles.input}
-            required
+      <main className="max-w-6xl mx-auto px-6">
+        {/* Card de Publicação */}
+        <section className="bg-white p-8 rounded-3xl shadow-2xl shadow-indigo-100 border border-slate-100 mb-12">
+          <h2 className="text-lg font-bold text-slate-800 mb-6 px-1">
+            Compartilhe um conhecimento
+          </h2>
+          <form
+            onSubmit={handlePublicar}
+            className="grid grid-cols-1 md:grid-cols-4 gap-4"
           >
-            <option value="Iniciante">Iniciante</option>
-            <option value="Intermediário">Intermediário</option>
-            <option value="Avançado">Avançado</option>
-          </select>
-          <textarea
-            placeholder="Descrição rápida sobre o que você quer ensinar..."
-            value={descricao}
-            onChange={(e) => setDescricao(e.target.value)}
-            style={{ ...styles.input, minHeight: "60px" }}
-            required
-          />
-          <button type="submit" style={styles.btnCriar}>
-            Publicar Oferta
-          </button>
-        </form>
-      </div>
+            <input
+              className="p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all text-sm placeholder:text-slate-400"
+              placeholder="Título (ex: Aulas de React)"
+              value={novoConhecimento.titulo}
+              onChange={(e) =>
+                setNovoConhecimento({
+                  ...novoConhecimento,
+                  titulo: e.target.value,
+                })
+              }
+              required
+            />
+            <input
+              className="p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all text-sm placeholder:text-slate-400"
+              placeholder="Categoria (ex: Programação)"
+              value={novoConhecimento.categoria}
+              onChange={(e) =>
+                setNovoConhecimento({
+                  ...novoConhecimento,
+                  categoria: e.target.value,
+                })
+              }
+              required
+            />
+            <select
+              className="p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all text-sm cursor-pointer text-slate-600"
+              value={novoConhecimento.nivel}
+              onChange={(e) =>
+                setNovoConhecimento({
+                  ...novoConhecimento,
+                  nivel: e.target.value,
+                })
+              }
+            >
+              <option>Iniciante</option>
+              <option>Intermediário</option>
+              <option>Avançado</option>
+            </select>
 
-      {erro && <p style={styles.erro}>{erro}</p>}
+            <button
+              type="submit"
+              disabled={loading}
+              className="bg-indigo-700 hover:bg-indigo-800 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-200 transition transform active:scale-[0.98] cursor-pointer"
+            >
+              {loading ? "Publicando..." : "Publicar"}
+            </button>
 
-      <div style={styles.lista}>
-        {conhecimentos.length === 0 && !erro ? (
-          <p style={{ textAlign: "center", marginTop: "50px", width: "100%" }}>
-            Nenhum conhecimento cadastrado ainda. Seja o primeiro a criar um!
-          </p>
-        ) : (
-          conhecimentos.map((item) => (
-            <div key={item.id} style={styles.card}>
-              <h3 style={styles.titulo}>{item.titulo}</h3>
-              <p style={styles.badges}>
-                <strong>Categoria:</strong> {item.categoria} |{" "}
-                <strong>Nível:</strong> {item.nivel}
-              </p>
-              <p style={styles.descricao}>{item.descricao}</p>
-              <p style={styles.autor}>
-                Ofertado por:{" "}
-                <strong>{item.pessoa?.nome || "Você / Outro Usuário"}</strong>
+            <textarea
+              className="md:col-span-4 p-4 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 transition-all text-sm resize-none h-24 placeholder:text-slate-400"
+              placeholder="Descrição rápida sobre o que você quer ensinar..."
+              value={novoConhecimento.descricao}
+              onChange={(e) =>
+                setNovoConhecimento({
+                  ...novoConhecimento,
+                  descricao: e.target.value,
+                })
+              }
+              required
+            />
+          </form>
+        </section>
+
+        {/* Listagem de Conhecimentos */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {conhecimentos.length > 0 ? (
+            conhecimentos.map((item) => (
+              <div
+                key={item.id}
+                className="bg-white p-6 rounded-2xl border border-slate-100 shadow-md hover:shadow-xl transition-all border-l-4 border-l-indigo-700"
+              >
+                <div className="flex justify-between items-start mb-3">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-700 bg-indigo-50 px-2 py-1 rounded-md">
+                    {item.categoria}
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">
+                    {item.nivel}
+                  </span>
+                </div>
+                <h3 className="text-lg font-bold text-slate-800 mb-2">
+                  {item.titulo}
+                </h3>
+                <p className="text-slate-500 text-sm mb-4 line-clamp-3 leading-relaxed">
+                  {item.descricao}
+                </p>
+                <div className="pt-4 border-t border-slate-50 flex justify-between items-center">
+                  <span className="text-[10px] text-slate-400 font-medium uppercase tracking-tight">
+                    Ofertado por:{" "}
+                    <span className="text-slate-600 font-bold">
+                      {item.pessoa?.nome || "Membro"}
+                    </span>
+                  </span>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="md:col-span-3 text-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-200">
+              <p className="text-slate-400 font-medium italic">
+                Nenhum conhecimento cadastrado ainda. Seja o primeiro! ✨
               </p>
             </div>
-          ))
-        )}
-      </div>
+          )}
+        </div>
+      </main>
     </div>
   );
 }
-
-const styles = {
-  container: {
-    padding: "20px",
-    fontFamily: "Arial, sans-serif",
-    backgroundColor: "#f4f4f9",
-    minHeight: "100vh",
-  },
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "white",
-    padding: "15px 20px",
-    borderRadius: "8px",
-    boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-    marginBottom: "20px",
-  },
-  btnSair: {
-    backgroundColor: "#dc3545",
-    color: "white",
-    border: "none",
-    padding: "8px 16px",
-    borderRadius: "5px",
-    cursor: "pointer",
-    fontWeight: "bold",
-  },
-  formContainer: {
-    backgroundColor: "white",
-    padding: "20px",
-    borderRadius: "8px",
-    boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-    marginBottom: "30px",
-  },
-  form: { display: "flex", gap: "10px", flexWrap: "wrap" },
-  input: {
-    flex: "1 1 200px",
-    padding: "10px",
-    border: "1px solid #ccc",
-    borderRadius: "5px",
-  },
-  btnCriar: {
-    backgroundColor: "#28a745",
-    color: "white",
-    border: "none",
-    padding: "10px 20px",
-    borderRadius: "5px",
-    cursor: "pointer",
-    fontWeight: "bold",
-  },
-  erro: { color: "red", textAlign: "center" },
-  lista: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-    gap: "20px",
-  },
-  card: {
-    backgroundColor: "white",
-    padding: "20px",
-    borderRadius: "8px",
-    boxShadow: "0 2px 5px rgba(0,0,0,0.05)",
-    borderLeft: "5px solid #007BFF",
-  },
-  titulo: { margin: "0 0 10px 0", color: "#333" },
-  badges: { fontSize: "14px", color: "#666", marginBottom: "10px" },
-  descricao: {
-    fontSize: "15px",
-    color: "#444",
-    lineHeight: "1.5",
-    marginBottom: "15px",
-  },
-  autor: {
-    fontSize: "13px",
-    color: "#888",
-    borderTop: "1px solid #eee",
-    paddingTop: "10px",
-  },
-};
